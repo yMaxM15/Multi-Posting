@@ -210,6 +210,63 @@ def run_streamlit_dashboard() -> None:
                 except Exception as login_err:
                     st.sidebar.error(f"Login error: {login_err}")
 
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("🛠️ Configure Credentials (.env)", expanded=False):
+        st.caption("Edit API credentials directly without opening any text file:")
+        env_file = Path(__file__).resolve().parent / ".env"
+        from dotenv import dotenv_values, set_key
+
+        current_env = dotenv_values(str(env_file)) if env_file.exists() else {}
+
+        # S3 / R2
+        st.markdown("**Cloud Storage (S3 / Cloudflare R2)**")
+        new_provider = st.selectbox(
+            "Provider",
+            ["s3", "r2"],
+            index=0 if current_env.get("STORAGE_PROVIDER", "s3") == "s3" else 1,
+        )
+        new_bucket = st.text_input("Bucket Name", value=current_env.get("S3_BUCKET_NAME", ""))
+        new_access = st.text_input("Access Key ID", value=current_env.get("S3_ACCESS_KEY_ID", ""))
+        new_secret = st.text_input(
+            "Secret Access Key",
+            value=current_env.get("S3_SECRET_ACCESS_KEY", ""),
+            type="password",
+        )
+        new_region = st.text_input("Region", value=current_env.get("S3_REGION_NAME", "eu-central-1"))
+        new_endpoint = st.text_input(
+            "Endpoint URL (for R2)",
+            value=current_env.get("S3_ENDPOINT_URL", ""),
+            placeholder="https://<id>.r2.cloudflarestorage.com",
+        )
+
+        # Instagram
+        st.markdown("**Instagram Graph API**")
+        new_ig_token = st.text_input(
+            "Access Token",
+            value=current_env.get("INSTAGRAM_ACCESS_TOKEN", ""),
+            type="password",
+        )
+        new_ig_acc = st.text_input("Account ID", value=current_env.get("INSTAGRAM_ACCOUNT_ID", ""))
+
+        if st.button("💾 Save Credentials to .env"):
+            env_file.touch(exist_ok=True)
+            set_key(str(env_file), "STORAGE_PROVIDER", new_provider)
+            set_key(str(env_file), "S3_BUCKET_NAME", new_bucket)
+            set_key(str(env_file), "S3_ACCESS_KEY_ID", new_access)
+            set_key(str(env_file), "S3_SECRET_ACCESS_KEY", new_secret)
+            set_key(str(env_file), "S3_REGION_NAME", new_region)
+            set_key(str(env_file), "S3_ENDPOINT_URL", new_endpoint)
+            set_key(str(env_file), "INSTAGRAM_ACCESS_TOKEN", new_ig_token)
+            set_key(str(env_file), "INSTAGRAM_ACCOUNT_ID", new_ig_acc)
+
+            # Reload settings
+            from dotenv import load_dotenv
+            load_dotenv(dotenv_path=env_file, override=True)
+            settings.__init__()
+            st.success("Credentials saved to .env! Reloading...")
+            time.sleep(1)
+            st.rerun()
+
     # Main columns
     col_left, col_right = st.columns([1, 1], gap="large")
 
