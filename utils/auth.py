@@ -166,10 +166,19 @@ def interactive_tiktok_login(session_dir: Optional[Path] = None) -> bool:
         print("=" * 60 + "\n")
 
         try:
-            input("Drücke [ENTER], um den Login zu bestätigen und die Session zu sichern... ")
+            input("Press [ENTER] in this terminal once you have successfully logged in... ")
         except (KeyboardInterrupt, EOFError):
             pass
 
         context.close()
-        logger.success(f"TikTok-Session im Verzeichnis gesichert: {target_dir}")
-        return True
+
+    from uploader.tiktok import is_tiktok_authenticated
+    success = is_tiktok_authenticated(target_dir)
+    if success:
+        logger.success(f"TikTok authentication cookies confirmed and saved to: {target_dir}")
+    else:
+        logger.warning(
+            f"No active TikTok login cookies found in {target_dir}. "
+            "Please make sure you complete login next time."
+        )
+    return success

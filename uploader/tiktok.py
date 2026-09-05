@@ -12,6 +12,49 @@ from config import settings
 from uploader.base import BaseUploader, UploadResult
 
 
+def is_tiktok_authenticated(session_dir: Path) -> bool:
+    """Inspects the persistent Chromium cookies SQLite database for TikTok auth tokens."""
+    if not session_dir.exists():
+        return False
+
+    cookies_db = session_dir / "Default" / "Network" / "Cookies"
+    if not cookies_db.exists():
+        cookies_db = session_dir / "Default" / "Cookies"
+
+    if not cookies_db.exists():
+        return False
+
+    import sqlite3
+    import tempfile
+    import shutil
+
+    tmp_file = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".sqlite")
+        os.close(tmp_fd)
+        tmp_file = Path(tmp_path)
+        shutil.copyfile(cookies_db, tmp_file)
+
+        conn = sqlite3.connect(str(tmp_file))
+        cursor = conn.cursor()
+        cursor.execute("SELECT host_key, name FROM cookies")
+        names = {row[1] for row in cursor.fetchall() if "tiktok" in row[0].lower()}
+        conn.close()
+
+        # Legitimate TikTok login cookies
+        auth_cookie_names = {"sessionid", "sessionid_ss", "sid_guard", "sid_tt"}
+        return bool(names.intersection(auth_cookie_names))
+    except Exception as e:
+        logger.debug(f"Could not read TikTok cookies database: {e}")
+        return False
+    finally:
+        if tmp_file and tmp_file.exists():
+            try:
+                tmp_file.unlink()
+            except Exception:
+                pass
+
+
 class TikTokUploader(BaseUploader):
     """Automates TikTok upload using Playwright with persistent session context."""
 
@@ -29,11 +72,11 @@ class TikTokUploader(BaseUploader):
         self.upload_url = "https://www.tiktok.com/creator-center/upload?from=upload"
 
     def is_configured(self) -> bool:
-        return True
+        return self.has_saved_session()
 
     def has_saved_session(self) -> bool:
-        """Checks if session directory exists and contains user data."""
-        return self.session_dir.exists() and any(self.session_dir.iterdir())
+        """Checks whether the Chromium session contains an active, authenticated TikTok login."""
+        return is_tiktok_authenticated(self.session_dir)
 
     def _format_caption(self, title: str, tags: Optional[list[str]] = None) -> str:
         """Builds concise TikTok caption with hashtags."""

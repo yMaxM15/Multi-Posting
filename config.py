@@ -79,8 +79,8 @@ class TikTokConfig:
         self.timeout_ms: int = int(os.getenv("TIKTOK_TIMEOUT_MS", "120000"))
 
     def is_configured(self) -> bool:
-        # Session directory can exist or be created upon initial login
-        return True
+        from uploader.tiktok import is_tiktok_authenticated
+        return is_tiktok_authenticated(self.session_dir)
 
 
 class Settings:
@@ -98,7 +98,7 @@ class Settings:
             "Storage (S3/R2)": self.storage.is_configured(),
             "YouTube Shorts": self.youtube.is_configured(),
             "Instagram Reels": self.instagram.is_configured() and self.storage.is_configured(),
-            "TikTok": self.tiktok.session_dir.exists(),
+            "TikTok": self.tiktok.is_configured(),
         }
 
 

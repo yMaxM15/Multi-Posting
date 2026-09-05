@@ -142,10 +142,10 @@ def publish_all_parallel(
 
 
 # =====================================================================
-# STREAMLIT DASHBOARD UI
+# STREAMLIT DASHBOARD UI (ENGLISH)
 # =====================================================================
 def run_streamlit_dashboard() -> None:
-    """Renders the Streamlit Web UI."""
+    """Renders the Streamlit Web UI in English."""
     import streamlit as st
 
     st.set_page_config(
@@ -156,68 +156,100 @@ def run_streamlit_dashboard() -> None:
 
     st.title("🚀 Multi-Posting Automation Tool")
     st.markdown(
-        "Veröffentliche deine Videos **gleichzeitig** und automatisiert auf "
-        "**YouTube Shorts**, **Instagram Reels** und **TikTok**."
+        "Publish your vertical videos (9:16) **simultaneously** and automatically to "
+        "**YouTube Shorts**, **Instagram Reels**, and **TikTok**."
     )
 
-    # Sidebar: System Status
-    st.sidebar.header("⚙️ Konfigurationsstatus")
+    # Sidebar: Platform & Service Status
+    st.sidebar.header("⚙️ Platform & API Status")
     status_summary = settings.get_status_summary()
-    for name, is_ready in status_summary.items():
-        if is_ready:
-            st.sidebar.success(f"✅ {name}: Bereit")
-        else:
-            st.sidebar.warning(f"⚠️ {name}: Nicht konfiguriert")
 
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔑 TikTok Session")
-    if settings.tiktok.session_dir.exists() and any(settings.tiktok.session_dir.iterdir()):
-        st.sidebar.success("✅ TikTok Session-Cookies vorhanden")
+    # Storage
+    if status_summary.get("Storage (S3/R2)"):
+        st.sidebar.success(f"✅ Storage ({settings.storage.provider.upper()}): Ready")
     else:
-        st.sidebar.info(
-            "ℹ️ Noch keine TikTok-Session. Führe im Terminal `python app.py tiktok-login` aus."
+        st.sidebar.warning(
+            f"⚠️ Storage ({settings.storage.provider.upper()}): Not configured (Needed for Instagram Reels)"
         )
+
+    # YouTube
+    if status_summary.get("YouTube Shorts"):
+        st.sidebar.success("✅ YouTube Shorts: Ready")
+    else:
+        st.sidebar.warning("⚠️ YouTube Shorts: Missing client_secrets.json")
+
+    # Instagram
+    if status_summary.get("Instagram Reels"):
+        st.sidebar.success("✅ Instagram Reels: Ready")
+    else:
+        st.sidebar.warning("⚠️ Instagram Reels: Missing credentials or S3 storage")
+
+    # TikTok
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🎵 TikTok Session")
+    tt_uploader = TikTokUploader()
+    is_tt_logged_in = tt_uploader.has_saved_session()
+
+    if is_tt_logged_in:
+        st.sidebar.success("✅ TikTok: Logged In & Ready")
+    else:
+        st.sidebar.error("❌ TikTok: Not logged in")
+        st.sidebar.info(
+            "To log into TikTok, run `python app.py tiktok-login` in your terminal, "
+            "or click the button below to open a browser window."
+        )
+        if st.sidebar.button("🔑 Log in to TikTok (Open Browser)"):
+            with st.spinner("Opening browser for TikTok login. Log in, then return here..."):
+                try:
+                    ok = interactive_tiktok_login()
+                    if ok:
+                        st.sidebar.success("Login successful! Reloading...")
+                        st.rerun()
+                    else:
+                        st.sidebar.warning("Login was not completed or session cookies not detected.")
+                except Exception as login_err:
+                    st.sidebar.error(f"Login error: {login_err}")
 
     # Main columns
     col_left, col_right = st.columns([1, 1], gap="large")
 
     with col_left:
-        st.subheader("1. Video auswählen & Details")
+        st.subheader("1. Video Details & Content")
         uploaded_file = st.file_uploader(
-            "Wähle ein MP4-Video (9:16 Hochformat)",
+            "Select an MP4 video file (9:16 vertical format)",
             type=["mp4"],
-            help="Video für Shorts/Reels/TikTok im Hochformat.",
+            help="Vertical video for Shorts, Reels, and TikTok.",
         )
 
         video_path_input = st.text_input(
-            "Oder lokaler Dateipfad:",
-            placeholder="C:/Videos/mein_short.mp4",
+            "Or enter a local file path:",
+            placeholder="C:/Videos/my_short_video.mp4",
         )
 
         title = st.text_input(
-            "Titel des Videos:",
-            placeholder="5 KI-Tools, die du 2026 kennen musst",
-            help="#Shorts wird bei YouTube automatisch ergänzt.",
+            "Video Title:",
+            placeholder="5 AI Tools You Need to Know in 2026",
+            help="#Shorts is automatically appended for YouTube.",
         )
 
         description = st.text_area(
-            "Beschreibung / Caption:",
-            placeholder="In diesem Video zeige ich die besten KI-Tools für Entwickler...",
+            "Description / Caption:",
+            placeholder="In this short video, I showcase the top AI tools for developers...",
             height=120,
         )
 
         tags_str = st.text_input(
-            "Tags / Hashtags (Kommagetrennt oder mit #):",
-            placeholder="ai, coding, tech, shorts, reel",
+            "Tags / Hashtags (comma separated or with #):",
+            placeholder="ai, coding, tech, shorts, reels, automation",
         )
 
         strict_val = st.checkbox(
-            "Strikte 9:16 Validierung erzwingen",
+            "Enforce strict 9:16 aspect ratio check",
             value=True,
-            help="Prüft exakt, ob das Video im 9:16 Hochformat vorliegt.",
+            help="Ensures video dimensions strictly match vertical 9:16 format (e.g., 1080x1920).",
         )
 
-        st.subheader("2. Zielplattformen")
+        st.subheader("2. Target Platforms")
         col_p1, col_p2, col_p3 = st.columns(3)
         with col_p1:
             yt_selected = st.checkbox("YouTube Shorts", value=True)
@@ -235,11 +267,10 @@ def run_streamlit_dashboard() -> None:
             selected_platforms.append("tiktok")
 
     with col_right:
-        st.subheader("3. Video-Vorschau & Validierung")
+        st.subheader("3. Video Preview & Validation")
         active_video_path: Optional[Path] = None
 
         if uploaded_file is not None:
-            # Save uploaded file temporarily
             temp_dir = Path(tempfile.gettempdir()) / "multi_posting_uploads"
             temp_dir.mkdir(parents=True, exist_ok=True)
             temp_video_file = temp_dir / uploaded_file.name
@@ -251,36 +282,36 @@ def run_streamlit_dashboard() -> None:
             if candidate.exists():
                 active_video_path = candidate
             else:
-                st.error(f"Datei nicht gefunden: {candidate}")
+                st.error(f"File not found: {candidate}")
 
         if active_video_path:
             st.video(str(active_video_path))
             try:
                 info = validate_video(active_video_path, strict_9_16=False)
                 c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Auflösung", f"{info.width}x{info.height}")
-                c2.metric("Ratio", f"{info.aspect_ratio:.2f}", "9:16" if info.is_9_16 else "Abweichung")
-                c3.metric("Dauer", f"{info.duration_seconds:.1f}s")
-                c4.metric("Dateigröße", f"{info.size_mb:.1f} MB")
+                c1.metric("Resolution", f"{info.width}x{info.height}")
+                c2.metric("Ratio", f"{info.aspect_ratio:.2f}", "9:16" if info.is_9_16 else "Deviation")
+                c3.metric("Duration", f"{info.duration_seconds:.1f}s")
+                c4.metric("File Size", f"{info.size_mb:.1f} MB")
 
                 if not info.is_9_16:
-                    st.warning("⚠️ Das Video weicht vom 9:16-Format ab!")
+                    st.warning("⚠️ The video deviates from the recommended 9:16 vertical ratio!")
                 else:
-                    st.success("✅ Perfektes 9:16 Hochformat für Shorts/Reels/TikTok!")
+                    st.success("✅ Optimal 9:16 vertical format for Shorts, Reels, and TikTok!")
             except Exception as e:
-                st.error(f"Validierungsfehler: {e}")
+                st.error(f"Validation error: {e}")
 
     # Action Button
     st.markdown("---")
     can_upload = bool(active_video_path and title.strip() and selected_platforms)
-    if st.button("🚀 Parallel auf allen Plattformen veröffentlichen", type="primary", disabled=not can_upload):
+    if st.button("🚀 Publish Concurrently to Selected Platforms", type="primary", disabled=not can_upload):
         tags_list = [
             t.strip().lstrip("#")
             for t in tags_str.replace(";", ",").split(",")
             if t.strip()
         ]
 
-        with st.spinner("Paralleler Upload läuft auf ausgewählten Plattformen..."):
+        with st.spinner("Publishing video concurrently across selected platforms..."):
             try:
                 v_info, upload_results = publish_all_parallel(
                     video_path=active_video_path,
@@ -291,20 +322,20 @@ def run_streamlit_dashboard() -> None:
                     strict_validation=strict_val,
                 )
 
-                st.subheader("📊 Upload-Ergebnisse")
+                st.subheader("📊 Publication Results")
                 res_cols = st.columns(len(upload_results))
                 for col, (platform_key, res) in zip(res_cols, upload_results.items()):
                     with col:
                         if res.success:
                             st.success(f"**{res.platform}**\n\n✅ {res.message}")
                             if res.url:
-                                st.markdown(f"[🔗 Zum Beitrag]({res.url})")
-                            st.caption(f"⏱️ Zeit: {res.execution_time:.1f}s")
+                                st.markdown(f"[🔗 View Post on {res.platform}]({res.url})")
+                            st.caption(f"⏱️ Elapsed time: {res.execution_time:.1f}s")
                         else:
-                            st.error(f"**{res.platform}**\n\n❌ Fehlgeschlagen")
-                            st.caption(f"Fehler: {res.error or res.message}")
+                            st.error(f"**{res.platform}**\n\n❌ Failed")
+                            st.caption(f"Error: {res.error or res.message}")
             except Exception as main_err:
-                st.error(f"Fehler beim Multi-Posting: {main_err}")
+                st.error(f"Multi-posting failed: {main_err}")
 
 
 # =====================================================================
