@@ -1,0 +1,7 @@
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = false
+enableCORS = false
+enableXsrfProtection = false
