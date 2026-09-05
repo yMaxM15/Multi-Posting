@@ -1,0 +1,27 @@
+# Multi-Posting Automation Tool Requirements
+# Compatible with Python 3.11+
+
+# YouTube Data API v3 & OAuth
+google-api-python-client>=2.115.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+
+# HTTP Requests & S3/R2 Storage
+requests>=2.31.0
+boto3>=1.34.0
+
+# Browser Automation for TikTok
+playwright>=1.41.0
+
+# Configuration & Logging
+python-dotenv>=1.0.1
+pydantic-settings>=2.2.1
+loguru>=0.7.2
+
+# CLI & Interactive Dashboard
+typer>=0.9.0
+rich>=13.7.0
+streamlit>=1.32.0
+
+# Video metadata & 9:16 aspect ratio validation
+opencv-python-headless>=4.9.0.80

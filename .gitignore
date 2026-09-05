@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Secrets & Credentials
+.env
+client_secrets.json
+token.json
+
+# TikTok persistent session cookies
+tiktok_session/
+
+# Logs & temporary files
+logs/
+*.log
+temp_uploads/
+
+# Sample test videos
+*.mp4
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
